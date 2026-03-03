@@ -3,6 +3,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createDesktopLensServer } from '../../src/server.js';
 import type { CaptureEngine, WindowInfo } from '../../src/capture/engine.js';
+import type { StreamServer } from '../../src/stream/websocket-server.js';
+import type { SessionManager } from '../../src/stream/session-manager.js';
+import type { PlaywrightBridge } from '../../src/browser/playwright-bridge.js';
+import type { PluginRegistry } from '../../src/plugin/registry.js';
 
 // Mock sharp
 vi.mock('sharp', () => {
@@ -13,9 +17,53 @@ vi.mock('sharp', () => {
     webp: vi.fn().mockReturnThis(),
     png: vi.fn().mockReturnThis(),
     toBuffer: vi.fn().mockResolvedValue(Buffer.from('processed')),
+    composite: vi.fn().mockReturnThis(),
+    ensureAlpha: vi.fn().mockReturnThis(),
+    raw: vi.fn().mockReturnThis(),
   };
   return { default: vi.fn(() => pipeline) };
 });
+
+// Mock pixelmatch
+vi.mock('pixelmatch', () => ({
+  default: vi.fn().mockReturnValue(0),
+}));
+
+// Mock pngjs
+vi.mock('pngjs', () => ({
+  PNG: class MockPNG {
+    data: Buffer = Buffer.alloc(0);
+    constructor(_opts: unknown) {}
+    static sync = { write: vi.fn().mockReturnValue(Buffer.from('diff-png')) };
+  },
+}));
+
+// Mock playwright bridge
+vi.mock('../../src/browser/playwright-bridge.js', () => ({
+  createPlaywrightBridge: vi.fn().mockResolvedValue({
+    isAvailable: false,
+    openViewer: vi.fn(),
+    closeAll: vi.fn(),
+  }),
+}));
+
+// Mock marketplace for plugin_search
+vi.mock('../../src/plugin/marketplace.js', () => ({
+  searchMarketplace: vi.fn().mockResolvedValue({
+    total: 0,
+    plugins: [],
+  }),
+}));
+
+// Mock installer for plugin_install/remove
+vi.mock('../../src/plugin/installer.js', () => ({
+  installFromLocal: vi.fn().mockResolvedValue({
+    success: true,
+    pluginName: 'test-plugin',
+    version: '1.0.0',
+  }),
+  uninstallPlugin: vi.fn().mockResolvedValue(true),
+}));
 
 const testWindow: WindowInfo = {
   id: 42, title: 'Test App', appName: 'test.exe',
@@ -34,9 +82,55 @@ function createTestEngine(): CaptureEngine {
   };
 }
 
+function createTestStreamServer(): StreamServer {
+  return {
+    start: vi.fn(),
+    stop: vi.fn(),
+    broadcast: vi.fn(),
+    clientCount: vi.fn().mockReturnValue(0),
+    port: 9876,
+    running: true,
+  };
+}
+
+function createTestSessionManager(): SessionManager {
+  return {
+    create: vi.fn().mockReturnValue('test-session-id'),
+    stop: vi.fn().mockReturnValue(true),
+    stopAll: vi.fn().mockReturnValue(['test-session-id']),
+    list: vi.fn().mockReturnValue([]),
+    get: vi.fn(),
+    activeCount: 0,
+  };
+}
+
+function createTestBridge(): PlaywrightBridge {
+  return {
+    isAvailable: false,
+    openViewer: vi.fn(),
+    closeAll: vi.fn(),
+  };
+}
+
+function createTestPluginRegistry(): PluginRegistry {
+  return {
+    list: vi.fn().mockReturnValue([]),
+    get: vi.fn(),
+    add: vi.fn(),
+    remove: vi.fn(),
+    names: vi.fn().mockReturnValue([]),
+    save: vi.fn(),
+    load: vi.fn(),
+  };
+}
+
 async function setupClientServer(engine?: CaptureEngine) {
   const { server } = await createDesktopLensServer({
     engine: engine ?? createTestEngine(),
+    streamServer: createTestStreamServer(),
+    sessionManager: createTestSessionManager(),
+    playwrightBridge: createTestBridge(),
+    pluginRegistry: createTestPluginRegistry(),
     logger: {
       debug: () => {},
       info: () => {},
@@ -51,14 +145,23 @@ async function setupClientServer(engine?: CaptureEngine) {
 }
 
 describe('MCP Server Integration', () => {
-  it('lists available tools', async () => {
+  it('lists all 10 available tools', async () => {
     const { client } = await setupClientServer();
     const result = await client.listTools();
-    const toolNames = result.tools.map((t) => t.name);
-    expect(toolNames).toContain('desktoplens_list_windows');
-    expect(toolNames).toContain('desktoplens_screenshot');
-    expect(toolNames).toContain('desktoplens_status');
-    expect(toolNames).toHaveLength(3);
+    const toolNames = result.tools.map((t) => t.name).sort();
+    expect(toolNames).toEqual([
+      'desktoplens_compare',
+      'desktoplens_list_windows',
+      'desktoplens_plugin_install',
+      'desktoplens_plugin_list',
+      'desktoplens_plugin_remove',
+      'desktoplens_plugin_search',
+      'desktoplens_screenshot',
+      'desktoplens_status',
+      'desktoplens_stop',
+      'desktoplens_watch',
+    ]);
+    expect(toolNames).toHaveLength(10);
     await client.close();
   });
 
@@ -120,9 +223,108 @@ describe('MCP Server Integration', () => {
     const { client } = await setupClientServer();
     const result = await client.callTool({ name: 'desktoplens_status', arguments: {} });
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
-    expect(parsed.version).toBe('0.1.0');
+    expect(parsed.version).toBe('0.5.0');
     expect(parsed.capture_available).toBe(true);
     expect(parsed.platform).toBeDefined();
+    expect(parsed.streaming).toBeDefined();
+    await client.close();
+  });
+
+  it('calls desktoplens_watch', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_watch',
+      arguments: { window_id: 42 },
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.session_id).toBe('test-session-id');
+    expect(parsed.status).toBe('streaming');
+    await client.close();
+  });
+
+  it('calls desktoplens_stop', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_stop',
+      arguments: {},
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.stopped).toEqual(['test-session-id']);
+    await client.close();
+  });
+
+  it('calls desktoplens_compare (returns error without before source)', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_compare',
+      arguments: { after_window_id: 42 },
+    });
+    expect(result.isError).toBe(true);
+    const text = (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain('Must provide before_snapshot_id');
+    await client.close();
+  });
+
+  it('calls desktoplens_screenshot and saves snapshot', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_screenshot',
+      arguments: { window_id: 42 },
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.snapshot_id).toBeDefined();
+    await client.close();
+  });
+
+  it('calls desktoplens_plugin_search', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_plugin_search',
+      arguments: { query: 'test' },
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.total).toBe(0);
+    expect(parsed.plugins).toEqual([]);
+    await client.close();
+  });
+
+  it('calls desktoplens_plugin_list', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_plugin_list',
+      arguments: {},
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.count).toBe(0);
+    await client.close();
+  });
+
+  it('calls desktoplens_plugin_install', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_plugin_install',
+      arguments: { source: '/fake/path' },
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.installed).toBe(true);
+    await client.close();
+  });
+
+  it('calls desktoplens_plugin_remove', async () => {
+    const { client } = await setupClientServer();
+    const result = await client.callTool({
+      name: 'desktoplens_plugin_remove',
+      arguments: { plugin_name: 'test-plugin' },
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
+    expect(parsed.removed).toBe(true);
     await client.close();
   });
 

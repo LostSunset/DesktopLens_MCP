@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DesktopLens Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>DesktopLens</h1>
+    <span id="status" class="status disconnected">Disconnected</span>
+  </header>
+  <main>
+    <canvas id="canvas"></canvas>
+  </main>
+  <footer>
+    <span id="fps">FPS: --</span>
+    <span id="latency">Latency: --ms</span>
+    <span id="resolution">--×--</span>
+    <span id="frames">Frames: 0</span>
+  </footer>
+  <script src="/viewer.js"></script>
+</body>
+</html>

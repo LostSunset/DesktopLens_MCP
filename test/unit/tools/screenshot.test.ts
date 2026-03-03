@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerScreenshot } from '../../../src/tools/screenshot.js';
 import type { CaptureEngine, WindowInfo } from '../../../src/capture/engine.js';
 import type { WindowDetector } from '../../../src/window-manager/detector.js';
+import { createSnapshotStore } from '../../../src/analysis/snapshot-store.js';
 
 // Mock sharp
 vi.mock('sharp', () => {
@@ -13,6 +14,7 @@ vi.mock('sharp', () => {
     webp: vi.fn().mockReturnThis(),
     png: vi.fn().mockReturnThis(),
     toBuffer: vi.fn().mockResolvedValue(Buffer.from('processed-image')),
+    composite: vi.fn().mockReturnThis(),
   };
   return { default: vi.fn(() => pipeline) };
 });
@@ -137,6 +139,41 @@ describe('desktoplens_screenshot', () => {
       window_id: 1,
       max_width: 640,
       max_height: 480,
+    });
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('saves snapshot when snapshotStore is provided', async () => {
+    const server = new McpServer({ name: 'test', version: '0.1.0' });
+    const store = createSnapshotStore(10);
+    registerScreenshot(server, createMockEngine(), createMockDetector(), store);
+
+    const result = await callTool(server, 'desktoplens_screenshot', { window_id: 1 });
+    expect(result.isError).toBeUndefined();
+
+    const contents = result.content as Array<{ type: string; text?: string }>;
+    const metadata = JSON.parse(contents[0]!.text!);
+    expect(metadata.snapshot_id).toBe('snap-1');
+    expect(store.size).toBe(1);
+  });
+
+  it('does not include snapshot_id when no store provided', async () => {
+    const server = new McpServer({ name: 'test', version: '0.1.0' });
+    registerScreenshot(server, createMockEngine(), createMockDetector());
+
+    const result = await callTool(server, 'desktoplens_screenshot', { window_id: 1 });
+    const contents = result.content as Array<{ type: string; text?: string }>;
+    const metadata = JSON.parse(contents[0]!.text!);
+    expect(metadata.snapshot_id).toBeUndefined();
+  });
+
+  it('applies annotation overlay when annotate is true', async () => {
+    const server = new McpServer({ name: 'test', version: '0.1.0' });
+    registerScreenshot(server, createMockEngine(), createMockDetector());
+
+    const result = await callTool(server, 'desktoplens_screenshot', {
+      window_id: 1,
+      annotate: true,
     });
     expect(result.isError).toBeUndefined();
   });
