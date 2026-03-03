@@ -1,0 +1,14 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__desktoplens__.*",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "DesktopLens MCP is available. You can capture desktop screenshots, stream windows in real-time, and compare UI changes. Use /screenshot, /windows, or /watch to get started."
+        }
+      ]
+    }
+  ]
+}

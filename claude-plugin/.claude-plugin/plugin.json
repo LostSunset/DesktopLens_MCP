@@ -1,0 +1,6 @@
+{
+  "name": "desktoplens-mcp",
+  "version": "0.6.0",
+  "description": "Give Claude Code eyes beyond the browser — real-time desktop screenshot capture, streaming, and UI analysis via MCP",
+  "author": "LostSunset"
+}

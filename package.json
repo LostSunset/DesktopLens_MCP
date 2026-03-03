@@ -1,6 +1,6 @@
 {
   "name": "desktoplens-mcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "MCP server that gives Claude Code real-time vision of desktop applications",
   "type": "module",
   "main": "dist/index.js",

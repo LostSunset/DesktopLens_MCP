@@ -36,9 +36,23 @@
 
 ## 快速開始
 
-### Claude Code 設定
+### Claude Code Plugin 安裝（推薦）
 
-將以下設定加入你的 MCP 設定：
+透過 Claude Code Plugin Marketplace 一鍵安裝，自動啟動 MCP Server 並載入所有 skills、commands、agents：
+
+```bash
+/plugin marketplace add LostSunset/DesktopLens_MCP
+/plugin install desktoplens-mcp@desktoplens-mcp
+```
+
+安裝後可直接使用：
+- `/screenshot [window]` — 快速截取桌面視窗截圖
+- `/windows [filter]` — 列出所有可見視窗
+- `/watch [window]` — 開始即時串流
+
+### 手動 MCP 設定
+
+或者，將以下設定手動加入你的 MCP 設定：
 
 ```json
 {
@@ -157,6 +171,7 @@ npm run build
 - [x] Phase 3 — Analysis：UI 對比分析 + 標註 (v0.3.0)
 - [x] Phase 4 — Plugin Ecosystem：Plugin 市場 + 動態載入 (v0.4.0)
 - [x] Phase 5 — Polish & Ship：E2E 測試 + 文件 + npm 發布 (v0.5.0)
+- [x] Phase 6 — Claude Code Plugin：Plugin 打包 + Marketplace 發布 (v0.6.0)
 
 ## 授權
 

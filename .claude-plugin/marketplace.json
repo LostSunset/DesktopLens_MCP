@@ -1,0 +1,12 @@
+{
+  "name": "DesktopLens MCP",
+  "owner": "LostSunset",
+  "description": "Give Claude Code eyes beyond the browser — real-time desktop screenshot capture, streaming, and UI analysis",
+  "plugins": [
+    {
+      "name": "desktoplens-mcp",
+      "description": "Desktop vision MCP server with 10 tools for screenshot capture, real-time streaming, UI comparison, and plugin ecosystem",
+      "source": "./claude-plugin"
+    }
+  ]
+}
