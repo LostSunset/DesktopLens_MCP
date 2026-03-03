@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "desktoplens": {
+      "command": "npx",
+      "args": ["-y", "desktoplens-mcp"],
+      "env": {
+        "DESKTOPLENS_PORT": "9876",
+        "DESKTOPLENS_DEFAULT_FPS": "2",
+        "DESKTOPLENS_DEFAULT_QUALITY": "medium",
+        "DESKTOPLENS_PLUGIN_DIR": "~/.desktoplens/plugins"
+      }
+    }
+  }
+}

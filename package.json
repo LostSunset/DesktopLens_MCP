@@ -1,0 +1,53 @@
+{
+  "name": "desktoplens-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that gives Claude Code real-time vision of desktop applications",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "desktoplens-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "desktop",
+    "screenshot",
+    "claude",
+    "vision"
+  ],
+  "author": "LostSunset",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LostSunset/DesktopLens_MCP.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "node-screenshots": "^0.2.8",
+    "sharp": "^0.34.1",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "^3.2.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
+  }
+}
